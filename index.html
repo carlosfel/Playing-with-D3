@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
+    <title>D3</title>
     <style>
       * { margin: 0;padding: 0 }
  
@@ -109,8 +110,8 @@ var q=d3.queue()
 q.defer(d3.json, "world.geojson")
   //生成一份map映射
   //+d.Y2014将字符转换成数值
-  .defer(d3.csv, "GDP_current.csv", function(d) { gdpData.set(d.CountryCode, +d.Y2014); })
-  .defer(d3.csv,"countriesData_sort.csv")
+  .defer(d3.csv, "https://raw.githubusercontent.com/carlosfel/Playing-with-D3/master/GDP_current.csv", function(d) { gdpData.set(d.CountryCode, +d.Y2014); })
+  .defer(d3.csv,"https://raw.githubusercontent.com/carlosfel/Playing-with-D3/master/countriesData_sort.csv")
   .await(ready1);
 
 function ready1(error,mapData,useless,countryData) {
