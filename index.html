@@ -183,6 +183,8 @@ function ready1(error,mapData,useless,countryData) {
   let mouseClick = function(d) {
     selected_country.sel=d3.select(this)._groups[0][0].__data__.id;
     selected_country_1.sel=d3.select(this)._groups[0][0].__data__.id;
+    selected_country_2.sel=d3.select(this)._groups[0][0].__data__.id;
+
     //update1(selectedOption)
     focus_state=(focus_state==0)?1:0;
     console.log(selected_country.sel)
