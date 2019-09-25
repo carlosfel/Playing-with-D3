@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+      * { margin: 0;padding: 0 }
+ 
+      .container {
+          position: absolute;
+          width: 100%;
+          height: 100%;
+      }
+      .tooltip{
+        position:absolute;
+        opacity:0;
+        background-color:white;
+        border:solid;
+        border-width:1px;
+        border-radius:5px;
+        padding:10px;
+      }
+      #my_dataviz_1{
+        float: left;
+        width:620px;
+      }
+      #my_dataviz_2{
+        float: none;
+        width:100%;
+      }
+      #tobeRight{
+        float: none;
+        width:100%;
+      }
+      #tobeLeft{
+        float: left;
+        width:440px;
+      }
+    </style>
+    <!-- Load d3.js -->
+    <script src="http://d3js.org/d3.v4.js"></script>
+    <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+    <script src="https://d3js.org/d3-geo-projection.v2.min.js"></script>
+    <script src="https://cdn.staticfile.org/jquery/1.10.2/jquery.min.js"></script>
+    
+</head>
+
+<body>
+  <div class="container">
+    <div id="my_dataviz_1"></div>
+    <div id="my_dataviz_2">
+      
+      <div id="tobeLeft">
+        <p id="what_you_select">what you select is: CHN</p>
+        <select id="selectButton_1"></select>
+        <div id="my_dataviz_3">All the things about the Economy</div>
+      </div>
+      <div id="tobeRight">
+        <select id="selectButton_2"></select>
+        <div id="my_dataviz_4">All the things about the Population Composition</div>
+      </div>
+    </div>
+    
+  </div>
+<!-- Create an element where the map will take place -->
+<!-- 接下来做什么：1 focus状态判断
+            2 mouseClick
+            3 数组选取合并 -->
+
+</body>
+
+<script>
+  var width =700, height =600;
+  var selected_country={sel:"CHN"};
+  var selected_country_1={sel:"CHN"};
+  var showed_country="";
+  var focus_state=0;
+  // var data_GDP_current=[];
+  // var data_GDP_growth=[];
+  // var data_GDP_per_current=[];
+  // var data_GDP_per_growth=[];
+  //命名一堆全局变量来存储数据
+
+  var data_GDP_current, data_GDP_growth, data_GDP_per_current, data_GDP_per_growth=[]
+  var data_Population_density, data_Population_rural, data_Population_total, data_Population_female, data_Population_growth=[]
+  var data_Unemployment_total, data_Unemployment_female=[]
+  var data_Labor_force_total, data_Labor_force_female=[]
+  var data_Armed_force, data_Surface_area, data_Internet_users, data_Arable_land=[]
+
+  var svg = d3.select("#my_dataviz_1")
+              .append("svg")
+              .attr("width", width)
+              .attr("height", height)
+  // Map and projection
+  var path = d3.geoPath();
+  var projection = d3.geoMercator()
+    .scale(100)
+    .center([0,0])
+    .translate([width / 2 -50, height / 2]);
+
+  // Data and color scale
+  //注意gdpData在之后的三次出现
+  var gdpData = d3.map();
+  var colorScale = d3.scaleThreshold()
+    .domain([1E7, 1E8, 1E9, 1E10, 1E12, 1E13])
+    .range(d3.schemeBlues[7]);
+
+// Load external data and boot
+var q=d3.queue()
+q.defer(d3.json, "world.geojson")
+  //生成一份map映射
+  //+d.Y2014将字符转换成数值
+  .defer(d3.csv, "GDP_current.csv", function(d) { gdpData.set(d.CountryCode, +d.Y2014); })
+  .defer(d3.csv,"countriesData_sort.csv")
+  .await(ready1);
+
+function ready1(error,mapData,useless,countryData) {
+
+  //接下来处理countryData
+  //第一，不同种类的分隔开
+  //第二，调整每一条数据的格式
+  //console.log(countryData)
+  var Arable_land=[],Armed_force=[],GDP_current=[],GDP_growth=[],GDP_per_current=[],GDP_per_growth=[],
+      Internet_users=[],Labor_force_female=[],Labor_force_total=[],
+      Population_density=[],Population_female=[],Population_growth=[],Population_total=[],Population_rural=[],
+      Surface_area=[],Unemployment_female=[],Unemployment_total=[]
+
+  var toLoadList=["GDP_current","GDP_growth","GDP_per_current","GDP_per_growth",
+                    "Population_density","Population_female","Population_growth","Population_rural","Population_total",
+                    "Unemployment_total","Unemployment_female",
+                    "Labor_force_total","Labor_force_female",
+                    "Armed_force","Arable_land","Surface_area","Internet_users"]
+  var j=0;
+
+  function phaseData(dataset){
+    var toAdd=[];
+    for(let i=j*200 ; i<j*200+200; i++){
+      toAdd.push(dataset[i])
+    }
+    //这里eval发现字符串转换成变量后只能用作函数中的局部变量
+    //var toName=eval(toLoadList[j])
+    var toName=[];
+    toName=toName.concat(toAdd)
+    j=j+1;
+    var toLoad=toName.map(d => {
+      return {
+        CountryCode: d.CountryCode, value: { Y2010: +d.Y2010, Y2011: +d.Y2011, Y2012: +d.Y2012, Y2013: +d.Y2013, Y2014: +d.Y2014 }
+      }
+    });
+    //console.log(toName)
+    return toLoad
+  }
+  Arable_land=phaseData(countryData); 
+  Armed_force=phaseData(countryData);  
+  GDP_current=phaseData(countryData);  
+  GDP_growth=phaseData(countryData);  
+  GDP_per_current=phaseData(countryData);  
+  GDP_per_growth=phaseData(countryData);  
+  Internet_users=phaseData(countryData);  
+  Labor_force_female=phaseData(countryData);  
+  Labor_force_total=phaseData(countryData);  
+  Population_density=phaseData(countryData);  
+  Population_female=phaseData(countryData); 
+  Population_growth=phaseData(countryData);  
+  Population_total=phaseData(countryData);  
+  Population_rural =phaseData(countryData); 
+  Surface_area=phaseData(countryData);  
+  Unemployment_female=phaseData(countryData); 
+  Unemployment_total=phaseData(countryData); 
+
+  //console.log(Unemployment_total)
+
+  //画出左侧地图
+  var tooltip = d3.select("#my_dataviz_1")
+                        .append("div")
+                        .attr("class", "tooltip");
+  let mouseClick = function(d) {
+    selected_country.sel=d3.select(this)._groups[0][0].__data__.id;
+    selected_country_1.sel=d3.select(this)._groups[0][0].__data__.id;
+    //update1(selectedOption)
+    focus_state=(focus_state==0)?1:0;
+    console.log(selected_country.sel)
+    console.log(selected_country_1.sel)
+    d3.selectAll(".Country")
+      .transition()
+      .duration(200)
+      .style("opacity", .5)
+    d3.select(this)
+      .transition()
+      .duration(200)
+      .style("opacity", 1)
+      .style("stroke", "black")
+    document.getElementById("what_you_select").innerHTML="what you select is: "+selected_country.sel;
+  }
+  let mouseOver = function(d) {
+    if(focus_state==0){
+    //更新显示国家相关信息
+    showed_country=d3.select(this)._groups[0][0].__data__;
+    
+    d3.selectAll(".Country")
+      .transition()
+      .duration(200)
+      .style("opacity", .5)
+    d3.select(this)
+      .transition()
+      .duration(200)
+      .style("opacity", 1)
+      .style("stroke", "black")
+    
+    tooltip
+          .style("opacity", 1)
+          .html(showed_country.id+"'s GDP current(year 2014) is "+showed_country.total/1000000+"million Dollars")
+          .style("left","90px")
+          .style("top","470px")
+    //console.log(d3.select(this)._groups[0][0].__data__.id)
+    //selected_country=d3.select(this)._groups[0][0].__data__.id;
+    //console.log(selected_country);
+    //console.log(data)
+    }
+  }
+
+  let mouseLeave = function(d) {
+    if(focus_state==0){
+    d3.selectAll(".Country")
+      .transition()
+      .duration(200)
+      .style("opacity", .8)
+    d3.select(this)
+      .transition()
+      .duration(200)
+      .style("stroke", "transparent")
+    }
+    tooltip
+          .style("opacity", 0)
+  }
+
+  // Draw the map
+  svg.append("g")
+    .selectAll("path")
+    .data(mapData.features)
+    .enter()
+    .append("path")
+      // draw each country
+      .attr("d", d3.geoPath()
+        .projection(projection)
+      )
+      // set the color of each country
+      //注意get和set的用法 set设置后，每当我输入d.id时自动查找d.countryCode并匹配到对应的d.Y2014返回
+      .attr("fill", function (d) {
+        d.total = gdpData.get(d.id) || 0;
+        return colorScale(d.total);
+      })
+      .style("stroke", "transparent")
+      .attr("class", function(d){ return "Country" } )
+      .style("opacity", .8)
+      .on("mouseover", mouseOver )
+      .on("mouseleave", mouseLeave )
+      .on("click",mouseClick)
+  
+  ready2();
+  function ready2(){
+    var margin = {top: 10, right: 150, bottom: 30, left: 30};
+    var width = 480 - margin.left - margin.right;
+    var height = 400 - margin.top - margin.bottom;
+
+    var svg = d3.select("#my_dataviz_3")
+      .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+        .attr("transform",
+              "translate(" + margin.left + "," + margin.top + ")");
+    var allGroup = ["GDP_current","GDP_growth","GDP_per_current","GDP_per_growth"
+                    ,"Unemployment_total","Unemployment_female"]
+    // add the options to the button
+    d3.select("#selectButton_1")
+      .selectAll('myOptions')
+     	.data(allGroup)
+      .enter()
+    	.append('option')
+      .text(function (d) { return d; }) // text showed in the menu
+      .attr("value", function (d) { return d; }) // corresponding value returned by the button
+
+        // Add X axis --> it is a date format
+    var x = d3.scaleLinear()
+      .domain([2010, 2014])
+      .range([0, width]);
+    svg.append("g")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(x));
+
+    var y = d3.scaleLinear()
+      .domain([5E+12, 1.2E+13])
+      .range([height, 0]);
+    svg.append("g")
+      .attr("transform","translate("+width+",0)")
+      .call(d3.axisRight(y))
+      .attr("class", "myAxis_1")
+
+    var trial=GDP_current.find(item=>{return item.CountryCode==selected_country.sel}).value
+    //console.log(Object.values(trial))
+    var Tooltip1 = d3.select("#my_dataviz_3")
+                .append("div")
+                .style("opacity", 0)
+                .attr("class", "tooltip")
+                .style("background-color", "white")
+                .style("border", "solid")
+                .style("border-width", "1px")
+                .style("border-radius", "5px")
+                .style("padding", "5px")
+    var mouseOver1 = function(d) {
+      //console.log(d)
+      Tooltip1
+      .style("opacity", 1)
+      .html("该点值为"+d)
+      .style("left", (d3.mouse(this)[0]+680) + "px")
+      .style("top", (d3.mouse(this)[1]+80) + "px")
+    }
+    var mouseLeave1 = function(d) {
+      Tooltip1  
+      .style("opacity", 0)
+    }
+    var line = svg
+      .append('g')
+      .append("path")
+        .datum(Object.values(trial))
+        .attr("d", d3.line()
+          .x(function(d,i) { return x(i+2010) })
+          .y(function(d) { return y(d) })
+        )
+        .attr("stroke", "black")
+        .style("stroke-width", 4)
+        .style("fill", "none")
+        
+    var dot = svg
+      .selectAll('circle')
+      .data(Object.values(trial))
+      .enter()
+      .append('circle')
+        .attr("cx", function(d,i) { return x(i+2010) })
+        .attr("cy", function(d) { return y(d) })
+        .attr("r", 7)
+        .style("fill", "#69b3a2")
+        .on("mouseover",mouseOver1)
+        .on("mouseleave",mouseLeave1)
+
+    d3.select("#selectButton_1").on("change", function(d) {
+        // recover the option that has been chosen
+        var selectedOption = d3.select(this).property("value")
+        // run the updateChart function with this selected option
+        update1(selectedOption)
+    })
+
+    //使用watch.js或者把selectedCountry变成一个函数
+    //或者用jquery订阅和发布
+    //变成一个对象，然后设置对象被获取值或是更新值时的行为
+    Object.defineProperty(selected_country, 'sel', {
+      get: function () { //取值的时候会触发
+        return sel;
+      },
+      set: function (val) { //更新值的时候会触发
+        sel = val;
+        
+        
+        console.log(d3.select("#selectButton_1").property("value"));
+        update1(d3.select("#selectButton_1").property("value"))
+      }
+    });
+
+    selected_country.sel="CHN"
+
+    // Object.defineProperty(selected_country, 'sel', {
+    //   get: function () { //取值的时候会触发
+    //     return sel;
+    //   },
+    //   set: function () { //更新值的时候会触发
+    //     console.log(d3.select("#selectButton").property("value"))
+    //     //update1()
+    //   }
+    // });
+
+    function update1(selectedGroup) {
+
+      // Create new data with the selection?
+      //eval真好用
+      var dataFilter = eval(selectedGroup)
+      //console.log(dataFilter)
+      var trial=dataFilter.find(item=>{return item.CountryCode==selected_country.sel}).value
+
+      var min=Math.min.apply(null,Object.values(trial))
+      var max=Math.max.apply(null,Object.values(trial))
+
+      y.domain([min-(max-min)/6, max+(max-min)/6])
+      
+      svg.select(".myAxis_1")
+        .transition()
+        .duration(1000)
+        .call(d3.axisRight(y))
+      // Give these new data to update line
+      line
+        .datum(Object.values(trial))
+        .transition()
+        .duration(1000)
+        .attr("d", d3.line()
+          .x(function(d,i) { return x(i+2010) })
+          .y(function (d) { return y(d) })
+        )
+      dot
+        .data(Object.values(trial))
+        .transition()
+        .duration(1000)
+        .attr("cy", function (d) { return y(d) })
+    }
+  }
+
+  ready3();
+    function ready3(){
+      var margin = {top: 10, right: 150, bottom: 30, left: 30};
+      var width = 470 - margin.left - margin.right;
+      var height = 420 - margin.top - margin.bottom;
+
+      var svg = d3.select("#my_dataviz_4")
+        .append("svg")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+          .attr("transform",
+                "translate(" + margin.left + "," + margin.top + ")");
+      var allGroup = ["Population_total","Population_growth","Population_density","Population_female",
+                      "Population_rural","Labor_force_total","Labor_force_female"]
+      // add the options to the button
+      d3.select("#selectButton_2")
+        .selectAll('myOptions')
+        .data(allGroup)
+        .enter()
+        .append('option')
+        .text(function (d) { return d; }) // text showed in the menu
+        .attr("value", function (d) { return d; }) // corresponding value returned by the button
+
+      var x1 = d3.scaleLinear()
+        .domain([2010, 2014])
+        .range([0, width]);
+      svg.append("g")
+        .attr("transform", "translate(0," + height + ")")
+        .call(d3.axisBottom(x1));
+
+      var y1 = d3.scaleLinear()
+        .domain([1.33E+9, 1.37E+9])
+        .range([height, 0]);
+      svg.append("g")
+        .attr("transform","translate("+width+",0)")
+        .call(d3.axisRight(y1))
+        .attr("class", "myAxis_2")
+      
+      var trial2=Population_total.find(item=>{return item.CountryCode==selected_country_1.sel}).value
+      //console.log(Object.values(trial))
+      console.log(trial2)
+      var Tooltip2 = d3.select("#my_dataviz_4")
+                  .append("div")
+                  .style("opacity", 0)
+                  .attr("class", "tooltip")
+                  .style("background-color", "white")
+                  .style("border", "solid")
+                  .style("border-width", "1px")
+                  .style("border-radius", "5px")
+                  .style("padding", "5px")
+      var mouseOver2 = function(d) {
+        //console.log(d)
+        Tooltip2
+        .style("opacity", 1)
+        .html("该点值为"+d)
+        .style("left", (d3.mouse(this)[0]+1120) + "px")
+        .style("top", (d3.mouse(this)[1]+70) + "px")
+      }
+      var mouseLeave2 = function(d) {
+        Tooltip2  
+        .style("opacity", 0)
+      }
+
+     
+
+      var line = svg
+        .append('g')
+        .append("path")
+          .datum(Object.values(trial2))
+          .attr("d", d3.line()
+            .x(function(d,i) { return x1(i+2010) })
+            .y(function(d) { return y1(d) })
+          )
+          .attr("stroke", "black")
+          .style("stroke-width", 4)
+          .style("fill", "none")
+          
+      var dot = svg
+        .selectAll('circle')
+        .data(Object.values(trial2))
+        .enter()
+        .append('circle')
+          .attr("cx", function(d,i) { return x1(i+2010) })
+          .attr("cy", function(d) { return y1(d) })
+          .attr("r", 7)
+          .style("fill", "#69b3a2")
+          .on("mouseover",mouseOver2)
+          .on("mouseleave",mouseLeave2)   
+
+       
+
+      d3.select("#selectButton_2").on("change", function(d) {
+        // recover the option that has been chosen
+        var selectedOption = d3.select(this).property("value")
+        // run the updateChart function with this selected option
+        update2(selectedOption)
+      })
+
+
+       //使用watch.js或者把selectedCountry变成一个函数
+      //或者用jquery订阅和发布
+      //变成一个对象，然后设置对象被获取值或是更新值时的行为
+      Object.defineProperty(selected_country_1, 'sel', {
+          get: function () { //取值的时候会触发
+            return sel;
+          },
+          set: function (val) { //更新值的时候会触发
+            sel = val;
+            console.log(d3.select("#selectButton_2").property("value"));
+            update2(d3.select("#selectButton_2").property("value"))
+          }
+        });
+
+      selected_country_1.sel="CHN"
+
+      function update2(selectedGroup) {
+
+        // Create new data with the selection?
+        //eval真好用
+        var dataFilter = eval(selectedGroup)
+        //console.log(dataFilter)
+        var trial2=dataFilter.find(item=>{return item.CountryCode==selected_country_1.sel}).value
+
+        var min=Math.min.apply(null,Object.values(trial2))
+        var max=Math.max.apply(null,Object.values(trial2))
+
+        y1.domain([min-(max-min)/6, max+(max-min)/6])
+        
+        svg.select(".myAxis_2")
+          .transition()
+          .duration(1000)
+          .call(d3.axisRight(y1))
+        // Give these new data to update line
+        line
+          .datum(Object.values(trial2))
+          .transition()
+          .duration(1000)
+          .attr("d", d3.line()
+            .x(function(d,i) { return x1(i+2010) })
+            .y(function (d) { return y1(d) })
+          )
+        dot
+          .data(Object.values(trial2))
+          .transition()
+          .duration(1000)
+          .attr("cy", function (d) { return y1(d) })
+      }
+
+
+    }
+
+}
+
+</script>
+</html>
